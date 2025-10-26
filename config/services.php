@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'weatherapi' => [
+        'key' => env('WEATHER_API_KEY'),
+    ],
+
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+    ],
+
 ];
