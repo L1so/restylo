@@ -23,7 +23,12 @@ class WeatherService
         $query = $ip ?: 'auto:ip';
         $url = 'https://api.weatherapi.com/v1/current.json';
 
-        $response = Http::get($url, [
+        // Use withoutVerifying only in development mode
+        $httpClient = config('app.env') === 'production' 
+            ? Http::timeout(30) 
+            : Http::withoutVerifying()->timeout(30);
+            
+        $response = $httpClient->get($url, [
             'key' => $key,
             'q' => $query,
         ]);

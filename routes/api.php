@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OutfitController;
+use App\Http\Controllers\OutfitRecommendationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,3 +16,8 @@ use App\Http\Controllers\OutfitController;
 */
 
 Route::get('/outfit', [OutfitController::class, 'suggest']);
+
+// New outfit recommendation endpoints
+Route::get('/recommendations', [OutfitRecommendationController::class, 'getRecommendations']);
+Route::get('/outfits/{condition}', [OutfitRecommendationController::class, 'getByWeatherCondition']);
+Route::post('/test-algorithm', [OutfitRecommendationController::class, 'testAlgorithm']);
