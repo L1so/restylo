@@ -21,20 +21,28 @@ class OutfitController extends Controller
      */
     public function suggest(Request $request, WeatherService $weatherService, AIService $aiService): JsonResponse
     {
-    // Get the client IP as detected by Laravel (honors trusted proxies if configured)
-    $clientIp = $request->ip();
+        // Check for manual location override (for testing/debugging)
+        $locationOverride = $request->input('location');
+        
+        if ($locationOverride) {
+            // Use manual location if provided
+            $locationQuery = $locationOverride;
+        } else {
+            // Get the client IP as detected by Laravel (honors trusted proxies if configured)
+            $clientIp = $request->ip();
 
-    // If request comes from localhost or private network, let WeatherAPI use auto:ip
-    $localIps = ['127.0.0.1', '::1'];
-    $isLocalIp = in_array($clientIp, $localIps, true) || preg_match('/^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])|192\.168\.)/', $clientIp) === 1;
+            // If request comes from localhost or private network, let WeatherAPI use auto:ip
+            $localIps = ['127.0.0.1', '::1'];
+            $isLocalIp = in_array($clientIp, $localIps, true) || preg_match('/^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])|192\.168\.)/', $clientIp) === 1;
 
-    $ipForApi = $isLocalIp ? null : $clientIp;
+            $locationQuery = $isLocalIp ? null : $clientIp;
+        }
 
         // Get event type from request (default to 'casual')
         $event = (string) $request->input('event', 'casual');
 
-    // Fetch weather. WeatherService will use the given IP; if null it falls back to auto:ip.
-    $weather = $weatherService->getCurrentWeather($ipForApi);
+        // Fetch weather. WeatherService will use the given location query; if null it falls back to auto:ip.
+        $weather = $weatherService->getCurrentWeather($locationQuery);
 
         $tempC = $weather['temperature_c'] ?? null;
         $condition = $weather['condition'] ?? 'unknown';
@@ -46,11 +54,22 @@ class OutfitController extends Controller
             $place = 'your area';
         }
 
-        $prompt = "Suggest a daily outfit for {$condition} weather";
+        $timeOfDay = date('A') === 'AM' ? 'morning' : (date('H') < 18 ? 'afternoon' : 'evening');
+        $season = $this->getCurrentSeason($location['lat'] ?? null);
+        
+        $prompt = "As a professional stylist, suggest a practical {$event} outfit for {$condition} weather";
         if ($tempC !== null) {
-            $prompt .= " with temperature {$tempC}°C";
+            $prompt .= " at {$tempC}°C ({$this->celsiusToFahrenheit($tempC)}°F)";
         }
-        $prompt .= " in {$place} for a {$event} event. Provide a short list of items and a brief rationale (2-4 sentences).";
+        $prompt .= " in {$place} for {$timeOfDay} activities";
+        if ($season) {
+            $prompt .= " during {$season}";
+        }
+        $prompt .= ". Please format your response with clear categories:\n\n";
+        $prompt .= "**Top:** [Specific shirt/blouse/top recommendation with fabric and color]\n";
+        $prompt .= "**Bottom:** [Specific pants/skirt/bottom recommendation with style and fabric]\n";
+        $prompt .= "**Shoes:** [Specific footwear recommendation appropriate for weather and occasion]\n\n";
+        $prompt .= "Then provide a brief styling rationale (2-3 sentences) explaining why these choices work well for the weather and cultural context.";
 
         try {
             $suggestion = $aiService->generate($prompt);
@@ -74,5 +93,48 @@ class OutfitController extends Controller
             'prompt' => $prompt,
             'suggestion' => $suggestion,
         ]);
+    }
+
+    /**
+     * Convert Celsius to Fahrenheit
+     */
+    private function celsiusToFahrenheit(?float $celsius): ?int
+    {
+        if ($celsius === null) {
+            return null;
+        }
+        return (int) round(($celsius * 9/5) + 32);
+    }
+
+    /**
+     * Determine current season based on latitude and current date
+     */
+    private function getCurrentSeason(?float $latitude): ?string
+    {
+        if ($latitude === null) {
+            return null;
+        }
+
+        $month = (int) date('n'); // 1-12
+        $isNorthernHemisphere = $latitude > 0;
+
+        if ($isNorthernHemisphere) {
+            return match(true) {
+                in_array($month, [12, 1, 2]) => 'winter',
+                in_array($month, [3, 4, 5]) => 'spring',
+                in_array($month, [6, 7, 8]) => 'summer',
+                in_array($month, [9, 10, 11]) => 'autumn',
+                default => null
+            };
+        } else {
+            // Southern hemisphere - seasons are opposite
+            return match(true) {
+                in_array($month, [12, 1, 2]) => 'summer',
+                in_array($month, [3, 4, 5]) => 'autumn',
+                in_array($month, [6, 7, 8]) => 'winter',
+                in_array($month, [9, 10, 11]) => 'spring',
+                default => null
+            };
+        }
     }
 }

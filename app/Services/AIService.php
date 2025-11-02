@@ -14,39 +14,31 @@ class AIService
      * @param float $temperature
      * @return string
      */
-    public function generate(string $prompt, int $maxTokens = 256, float $temperature = 0.2): string
+    public function generate(string $prompt, int $maxTokens = 256, float $temperature = 0.7): string
     {
         $key = config('services.gemini.key') ?: env('GEMINI_API_KEY');
         if (empty($key)) {
             throw new \RuntimeException('GEMINI_API_KEY not set in config/services.php or .env');
         }
 
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' . urlencode($key);
+        $url = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=' . urlencode($key);
 
-        // Try the `input.text` payload shape first (common for Generative Language API)
+        // Correct payload format for Gemini API v1
         $body = [
-            'input' => ['text' => $prompt],
-            'maxOutputTokens' => $maxTokens,
-            'temperature' => $temperature,
+            'contents' => [
+                [
+                    'parts' => [
+                        ['text' => $prompt]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
+                'maxOutputTokens' => $maxTokens,
+                'temperature' => $temperature,
+            ]
         ];
 
         $response = Http::withHeaders(['Content-Type' => 'application/json'])->post($url, $body);
-
-        // If the API returns an invalid-argument about unknown fields, try an alternate payload shape
-        if (! $response->successful()) {
-            $jsonBody = $response->json();
-            $message = $response->body();
-            // If response indicates unknown fields, try older/alternate payload
-            if (is_array($jsonBody) && isset($jsonBody['error']['details'])) {
-                // try alternate payload that some endpoints accept
-                $altBody = [
-                    'prompt' => ['text' => $prompt],
-                    'maxOutputTokens' => $maxTokens,
-                    'temperature' => $temperature,
-                ];
-                $response = Http::withHeaders(['Content-Type' => 'application/json'])->post($url, $altBody);
-            }
-        }
 
         if (! $response->successful()) {
             throw new \RuntimeException('Gemini API request failed: ' . $response->body());
@@ -54,26 +46,35 @@ class AIService
 
         $json = $response->json();
 
-        // Try common locations for generated text depending on response shape
+        // Extract generated text from the correct response structure
+        if (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
+            return (string) $json['candidates'][0]['content']['parts'][0]['text'];
+        }
+
+        // Check if there are parts in the content
+        if (isset($json['candidates'][0]['content']['parts']) && is_array($json['candidates'][0]['content']['parts'])) {
+            $textParts = [];
+            foreach ($json['candidates'][0]['content']['parts'] as $part) {
+                if (isset($part['text'])) {
+                    $textParts[] = $part['text'];
+                }
+            }
+            if (!empty($textParts)) {
+                return implode("\n", $textParts);
+            }
+        }
+
+        // Fallback for any other response structure
         if (isset($json['candidates'][0]['output'])) {
             return (string) $json['candidates'][0]['output'];
         }
 
-        if (isset($json['candidates'][0]['content']) && is_array($json['candidates'][0]['content'])) {
-            $parts = [];
-            foreach ($json['candidates'][0]['content'] as $c) {
-                if (is_string($c)) {
-                    $parts[] = $c;
-                } elseif (isset($c['text'])) {
-                    $parts[] = $c['text'];
-                }
-            }
-            if (! empty($parts)) {
-                return implode("\n", $parts);
-            }
+        // Check if the response was cut off due to max tokens
+        if (isset($json['candidates'][0]['finishReason']) && $json['candidates'][0]['finishReason'] === 'MAX_TOKENS') {
+            throw new \RuntimeException('Response was truncated due to max tokens limit. Try reducing the prompt or increasing maxOutputTokens.');
         }
 
-        // Last-resort: return whole JSON as string
-        return is_string($response->body()) ? $response->body() : json_encode($json);
+        // If we can't find the text, throw an error with the response
+        throw new \RuntimeException('Unexpected Gemini API response structure: ' . json_encode($json));
     }
 }

@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
     <div class="container mx-auto px-4 py-12">
       <!-- Header -->
-      <div class="text-center mb-12">
+      <div class="text-center mb-12 onboarding-welcome-target">
         <h1 class="text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4">
           ReStylo
         </h1>
@@ -89,7 +89,7 @@
             
             <!-- Event Input -->
             <div class="max-w-md mx-auto space-y-4">
-              <div class="relative">
+              <div class="relative onboarding-event-input">
                 <input
                   v-model="eventInput"
                   type="text"
@@ -99,15 +99,34 @@
                          focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                          placeholder-gray-500 dark:placeholder-gray-400
                          transition-all duration-200"
-                  @keyup.enter="getOutfitSuggestion"
+                  @keyup.enter="handleOutfitSuggestion"
+                  @input="handleEventInputChange"
                 />
+              </div>
+              
+              <!-- Optional Location Override -->
+              <div class="relative onboarding-location-input">
+                <input
+                  v-model="locationInput"
+                  type="text"
+                  placeholder="Location (optional) - e.g., Jakarta, Indonesia"
+                  class="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg 
+                         bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                         focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                         placeholder-gray-500 dark:placeholder-gray-400
+                         transition-all duration-200"
+                  @keyup.enter="handleOutfitSuggestion"
+                />
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Leave empty to use your current location
+                </div>
               </div>
               
               <!-- Get Suggestion Button -->
               <button
-                @click="getOutfitSuggestion"
+                @click="handleOutfitSuggestion"
                 :disabled="loading || !eventInput.trim()"
-                class="w-full px-6 py-3 text-lg font-semibold text-white 
+                class="onboarding-submit-button w-full px-6 py-3 text-lg font-semibold text-white 
                        bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400
                        rounded-lg transition-all duration-200 transform
                        hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed
@@ -146,41 +165,124 @@
               </div>
             </div>
 
-            <!-- Outfit Display -->
-            <div v-else-if="outfitSuggestion" class="max-w-2xl mx-auto">
-              <div class="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 
-                          border border-green-200 dark:border-green-800 rounded-lg p-6">
-                <div class="flex items-center space-x-3 mb-4">
+            <!-- Visual Outfit Display -->
+            <div v-else-if="outfitSuggestion" class="onboarding-results-target max-w-lg mx-auto">
+              <!-- Header -->
+              <div class="text-center mb-8">
+                <div class="flex items-center justify-center space-x-3 mb-4">
                   <div class="p-2 bg-green-100 dark:bg-green-800 rounded-full">
                     <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h4 class="text-xl font-semibold text-green-800 dark:text-green-200">
+                  <h4 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                     Your Perfect Outfit
                   </h4>
                 </div>
-                
-                <div class="prose prose-green dark:prose-invert max-w-none">
-                  <div class="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {{ outfitSuggestion }}
+                <p class="text-gray-600 dark:text-gray-400">
+                  Curated for {{ weatherDescription?.toLowerCase() || 'current' }} weather
+                </p>
+              </div>
+
+              <!-- Outfit Items -->
+              <div class="space-y-4">
+                <!-- Shirt/Top -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                  <div class="flex flex-col items-center space-y-4">
+                    <div class="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl flex items-center justify-center border border-blue-200 dark:border-blue-800">
+                      <!-- Shirt/Top SVG Icon -->
+                      <svg class="w-16 h-16 text-blue-500 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M16 4l3.86 1.93L20 8l-1 1h-1v11c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1V9H5l-1-1l.14-2.07L8 4l2-2h4l2 2zm-2 0v1h-4V4h4zm4 5v11H6V9h12z"/>
+                      </svg>
+                    </div>
+                    <div class="text-center">
+                      <h5 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">Top</h5>
+                      <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {{ cleanMarkdown(parsedOutfit.shirt) || 'Comfortable top suitable for the weather' }}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Try Again Button -->
-                <div class="mt-6 pt-4 border-t border-green-200 dark:border-green-700">
-                  <button
-                    @click="resetForm"
-                    class="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-300
-                           bg-white dark:bg-gray-800 border border-green-300 dark:border-green-600 rounded-md
-                           hover:bg-green-50 dark:hover:bg-green-900/50 transition-colors duration-200"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>Try another event</span>
-                  </button>
+                <!-- Pants/Bottom -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                  <div class="flex flex-col items-center space-y-4">
+                    <div class="w-24 h-24 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl flex items-center justify-center border border-green-200 dark:border-green-800">
+                      <!-- Pants/Bottom SVG Icon -->
+                      <svg class="w-16 h-16 text-green-500 dark:text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 2v5.2L5.5 9H3L5 22h4l2-10 2 10h4l2-13h-2.5L16 7.2V2H8zm6 3v2h-4V5h4z"/>
+                      </svg>
+                    </div>
+                    <div class="text-center">
+                      <h5 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">Bottom</h5>
+                      <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {{ cleanMarkdown(parsedOutfit.pants) || 'Appropriate bottom wear for the occasion' }}
+                      </p>
+                    </div>
+                  </div>
                 </div>
+
+                <!-- Shoes -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
+                  <div class="flex flex-col items-center space-y-4">
+                    <div class="w-24 h-24 bg-gradient-to-br from-orange-50 to-red-100 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl flex items-center justify-center border border-orange-200 dark:border-orange-800">
+                      <!-- Shoes SVG Icon -->
+                      <svg class="w-16 h-16 text-orange-500 dark:text-orange-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M2 18h20l-.5-2H21c0-1-1-3-3-3s-3 2-3 3h-6c0-1-1-3-3-3s-3 2-3 3h-.5L2 18zm0 2v1c0 .5.5 1 1 1h18c.5 0 1-.5 1-1v-1H2z"/>
+                      </svg>
+                    </div>
+                    <div class="text-center">
+                      <h5 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">Shoes</h5>
+                      <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {{ cleanMarkdown(parsedOutfit.shoes) || 'Weather-appropriate footwear' }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Full AI Response (Collapsible) -->
+              <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
+                <button
+                  @click="showFullResponse = !showFullResponse"
+                  class="w-full flex items-center justify-center space-x-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200"
+                >
+                  <span>{{ showFullResponse ? 'Hide' : 'Show' }} detailed recommendations</span>
+                  <svg 
+                    class="w-4 h-4 transition-transform duration-200"
+                    :class="{ 'rotate-180': showFullResponse }"
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                <div 
+                  v-show="showFullResponse"
+                  class="mt-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                >
+                  <div 
+                    class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap"
+                    v-html="formatOutfitText(outfitSuggestion)"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- Try Again Button -->
+              <div class="mt-8 text-center">
+                <button
+                  @click="resetForm"
+                  class="inline-flex items-center space-x-2 px-6 py-3 text-sm font-medium text-gray-700 dark:text-gray-300
+                         bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg
+                         hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Try another event</span>
+                </button>
               </div>
             </div>
           </div>
@@ -189,23 +291,61 @@
 
       <!-- Footer -->
       <div class="mt-12 text-center text-gray-500 dark:text-gray-400">
-        <p class="text-sm">
+        <p class="text-sm mb-4">
           Powered by WeatherAPI.com and Google Gemini AI
         </p>
+        <!-- Onboarding restart button (for testing) -->
+        <button
+          v-if="onboarding.isCompleted.value"
+          @click="onboarding.resetTour(); onboarding.startTour()"
+          class="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 underline"
+        >
+          Restart Tutorial
+        </button>
       </div>
     </div>
+
+    <!-- Onboarding Tour -->
+    <OnboardingTour
+      :is-active="onboarding.isActive.value"
+      :current-step="onboarding.currentStep.value"
+      :current-step-index="onboarding.currentStepIndex.value"
+      :steps="onboarding.steps.value"
+      :progress="onboarding.progress.value"
+      :is-first-step="onboarding.isFirstStep.value"
+      :is-last-step="onboarding.isLastStep.value"
+      @next-step="onboarding.nextStep"
+      @previous-step="onboarding.previousStep"
+      @skip-tour="onboarding.skipTour"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import OnboardingTour from '../components/OnboardingTour.vue'
+import { useOnboarding } from '../composables/useOnboarding'
 
 // Reactive state
 const eventInput = ref('')
+const locationInput = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
 const weatherData = ref<any>(null)
 const outfitSuggestion = ref<string | null>(null)
+const showFullResponse = ref(false)
+const parsedOutfit = ref<{
+  shirt: string | null
+  pants: string | null
+  shoes: string | null
+}>({
+  shirt: null,
+  pants: null,
+  shoes: null
+})
+
+// Initialize onboarding
+const onboarding = useOnboarding()
 
 // Computed properties
 const weatherState = computed(() => {
@@ -250,15 +390,144 @@ const location = computed(() => {
 })
 
 // Methods
+const parseOutfitSuggestion = (suggestion: string) => {
+  // Reset parsed outfit
+  parsedOutfit.value = { shirt: null, pants: null, shoes: null }
+  
+  if (!suggestion) return
+  
+  // Clean and normalize the suggestion text
+  const cleanSuggestion = suggestion
+    .replace(/\*\*/g, '') // Remove markdown bold
+    .replace(/^\s*[-*•]\s*/gm, '') // Remove bullet points
+  
+  const lines = cleanSuggestion.split('\n')
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    if (!trimmedLine) continue
+    
+    // Look for clothing categories with improved parsing
+    if (/^(top|shirt|blouse):/i.test(trimmedLine)) {
+      const colonIndex = trimmedLine.indexOf(':')
+      if (colonIndex !== -1) {
+        const item = trimmedLine.substring(colonIndex + 1).trim()
+        if (item) parsedOutfit.value.shirt = item
+      }
+    } else if (/^(bottom|pants|trousers|skirt|jeans):/i.test(trimmedLine)) {
+      const colonIndex = trimmedLine.indexOf(':')
+      if (colonIndex !== -1) {
+        const item = trimmedLine.substring(colonIndex + 1).trim()
+        if (item) parsedOutfit.value.pants = item
+      }
+    } else if (/^(shoes|footwear|sandals|sneakers|boots):/i.test(trimmedLine)) {
+      const colonIndex = trimmedLine.indexOf(':')
+      if (colonIndex !== -1) {
+        const item = trimmedLine.substring(colonIndex + 1).trim()
+        if (item) parsedOutfit.value.shoes = item
+      }
+    }
+  }
+  
+  // Fallback parsing for less structured responses
+  if (!parsedOutfit.value.shirt) {
+    // Look for top/shirt descriptions in various formats
+    const shirtPatterns = [
+      /(?:wear|choose|try)\s+(?:a\s+)?([^.\n]*(?:shirt|top|blouse|tee|polo)[^.\n]*?)(?:\.|,|\n|$)/i,
+      /(?:shirt|top|blouse|tee)[\s:]*([^.\n]*?)(?:\.|,|\n|and)/i,
+      /([^.\n]*(?:cotton|linen|silk|denim)[^.\n]*(?:shirt|top|blouse)[^.\n]*)/i
+    ]
+    
+    for (const pattern of shirtPatterns) {
+      const match = cleanSuggestion.match(pattern)
+      if (match && match[1]) {
+        parsedOutfit.value.shirt = match[1].trim()
+        break
+      }
+    }
+  }
+  
+  if (!parsedOutfit.value.pants) {
+    const pantsPatterns = [
+      /(?:wear|choose|try)\s+(?:a\s+)?([^.\n]*(?:pants|jeans|trousers|skirt|shorts)[^.\n]*?)(?:\.|,|\n|$)/i,
+      /(?:pants|jeans|trousers|skirt|shorts)[\s:]*([^.\n]*?)(?:\.|,|\n|and)/i,
+      /([^.\n]*(?:wide-leg|cropped|midi|chinos)[^.\n]*(?:pants|jeans|trousers|skirt)[^.\n]*)/i
+    ]
+    
+    for (const pattern of pantsPatterns) {
+      const match = cleanSuggestion.match(pattern)
+      if (match && match[1]) {
+        parsedOutfit.value.pants = match[1].trim()
+        break
+      }
+    }
+  }
+  
+  if (!parsedOutfit.value.shoes) {
+    const shoesPatterns = [
+      /(?:wear|choose|try)\s+(?:a\s+)?([^.\n]*(?:shoes|sandals|sneakers|boots|flats)[^.\n]*?)(?:\.|,|\n|$)/i,
+      /(?:shoes|sandals|sneakers|boots|flats|footwear)[\s:]*([^.\n]*?)(?:\.|,|\n|and)/i,
+      /([^.\n]*(?:comfortable|strappy|leather)[^.\n]*(?:shoes|sandals|sneakers|boots)[^.\n]*)/i
+    ]
+    
+    for (const pattern of shoesPatterns) {
+      const match = cleanSuggestion.match(pattern)
+      if (match && match[1]) {
+        parsedOutfit.value.shoes = match[1].trim()
+        break
+      }
+    }
+  }
+  
+  // Clean up the parsed items
+  Object.keys(parsedOutfit.value).forEach(key => {
+    const item = parsedOutfit.value[key as keyof typeof parsedOutfit.value]
+    if (item) {
+      // Remove leading/trailing punctuation and clean up
+      parsedOutfit.value[key as keyof typeof parsedOutfit.value] = item
+        .replace(/^[,\-\s]+|[,\-\s]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    }
+  })
+}
+
+// Handle outfit suggestion with onboarding integration
+const handleOutfitSuggestion = async () => {
+  // If onboarding is active and we're on the submit button step, advance to results step
+  if (onboarding.isActive.value && onboarding.currentStep.value?.id === 'submit-button') {
+    await getOutfitSuggestion()
+    // Wait a moment for the UI to update, then advance to results step
+    setTimeout(() => {
+      if (outfitSuggestion.value) {
+        onboarding.nextStep()
+      }
+    }, 500)
+  } else {
+    await getOutfitSuggestion()
+  }
+}
+
 const getOutfitSuggestion = async () => {
   if (!eventInput.value.trim()) return
   
   loading.value = true
   error.value = null
   outfitSuggestion.value = null
+  parsedOutfit.value = { shirt: null, pants: null, shoes: null }
   
   try {
-    const response = await fetch(`/api/outfit?event=${encodeURIComponent(eventInput.value.trim())}`)
+    // Build API URL with parameters
+    const params = new URLSearchParams({
+      event: eventInput.value.trim()
+    })
+    
+    // Add location parameter if specified
+    if (locationInput.value.trim()) {
+      params.append('location', locationInput.value.trim())
+    }
+    
+    const response = await fetch(`/api/outfit?${params.toString()}`)
     
     if (!response.ok) {
       const errorText = await response.text()
@@ -269,6 +538,9 @@ const getOutfitSuggestion = async () => {
     weatherData.value = data
     outfitSuggestion.value = data.suggestion
     
+    // Parse the outfit suggestion into visual components
+    parseOutfitSuggestion(data.suggestion)
+    
   } catch (err: any) {
     error.value = err.message || 'Failed to get outfit suggestion. Please try again.'
     console.error('Error fetching outfit suggestion:', err)
@@ -277,9 +549,41 @@ const getOutfitSuggestion = async () => {
   }
 }
 
+// Format markdown-style text to HTML
+const formatOutfitText = (text: string | null): string => {
+  if (!text) return ''
+  
+  return text
+    // Convert **bold** to <strong>bold</strong>
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // Convert *italic* to <em>italic</em>
+    .replace(/(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
+    // Convert line breaks to <br> tags
+    .replace(/\n/g, '<br>')
+    // Clean up any remaining asterisks that might be formatting artifacts
+    .replace(/^\*\s*/gm, '• ')
+}
+
+// Clean markdown formatting from plain text (for individual outfit items)
+const cleanMarkdown = (text: string | null): string => {
+  if (!text) return ''
+  
+  return text
+    // Remove **bold** markers but keep the text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    // Remove *italic* markers but keep the text
+    .replace(/(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)/g, '$1')
+    // Clean up any remaining asterisks
+    .replace(/^\*\s*/gm, '')
+    .trim()
+}
+
 const resetForm = () => {
   eventInput.value = ''
+  locationInput.value = ''
   outfitSuggestion.value = null
+  showFullResponse.value = false
+  parsedOutfit.value = { shirt: null, pants: null, shoes: null }
   error.value = null
 }
 
@@ -293,6 +597,16 @@ const loadInitialWeather = async () => {
     }
   } catch (err) {
     console.warn('Failed to load initial weather data:', err)
+  }
+}
+
+// Helper method to advance onboarding when user types
+const handleEventInputChange = () => {
+  // If onboarding is active and we're on the event input step, auto-advance after user types
+  if (onboarding.isActive.value && onboarding.currentStep.value?.id === 'event-input' && eventInput.value.trim().length > 3) {
+    setTimeout(() => {
+      onboarding.nextStep()
+    }, 1000) // Give user time to read what they typed
   }
 }
 
